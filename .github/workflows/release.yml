@@ -1,0 +1,10 @@
+# This privacy fork intentionally does not publish binary releases or updates.
+# Review and build manually in a trusted environment.
+name: Privacy fork - release disabled
+on:
+  workflow_dispatch:
+jobs:
+  release-disabled:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Privacy fork release pipeline disabled; build locally from reviewed sources."
