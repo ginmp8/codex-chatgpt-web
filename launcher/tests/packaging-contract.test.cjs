@@ -215,6 +215,7 @@ test("Linux packaging stages native libnotify in an owned AppImage toolset befor
 test("macOS package smoke unregisters its staged app from LaunchServices", () => {
   const smoke = fs.readFileSync(path.join(launcherRoot, "scripts", "smoke-package.cjs"), "utf8");
   assert.match(smoke, /Frameworks\/LaunchServices\.framework\/Support\/lsregister/);
+  assert.match(smoke, /launcherManifest\.build\.productName/);
   assert.match(smoke, /\["-u", macAppBundle\]/);
   assert.ok(
     smoke.indexOf('["-u", macAppBundle]') < smoke.indexOf("fs.rmSync(scratch"),
