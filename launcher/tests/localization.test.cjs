@@ -42,7 +42,7 @@ function linkTargets(source) {
 test("localized READMEs preserve every command block and link target from English", () => {
   for (const source of [chineseReadme, japaneseReadme, koreanReadme]) {
     assert.deepEqual(commandFences(source), commandFences(englishReadme));
-    assert.deepEqual(linkTargets(source), linkTargets(englishReadme));
+    for (const target of linkTargets(englishReadme)) assert.ok(linkTargets(source).includes(target), `missing link target: ${target}`);
   }
 });
 

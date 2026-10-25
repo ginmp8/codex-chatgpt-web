@@ -19,7 +19,7 @@ test("launcher logs redact tunnel ids, runtime keys, and bearer credentials", ()
     authorization: "Bearer this-must-never-be-recorded",
     nested: { controlToken: "also-secret" },
   }), {
-    line: "[tunnel-id] [runtime-key]",
+    line: "[redacted]",
     authorization: "[redacted]",
     nested: { controlToken: "[redacted]" },
   });
@@ -94,12 +94,7 @@ test("exported launcher logs remove local usernames, private ChatGPT titles, and
     assert.equal(exportSanitizedLogs({ filePath, destinationPath }), 2);
     const exported = fs.readFileSync(destinationPath, "utf8");
     assert.doesNotMatch(exported, /private\.user|local-person|Private roadmap|Health notes|private prompt|private-conversation|oauth-secret|private@example\.com/);
-    assert.match(exported, /\[user-home\]/);
-    assert.match(exported, /visible rows: \[redacted\]/);
-    assert.match(exported, /Codex Native2/);
-    assert.match(exported, /"prompt":"\[redacted\]"/);
-    assert.match(exported, /https:\/\/chatgpt\.com/);
-    assert.match(exported, /https:\/\/accounts\.google\.com/);
+    assert.deepEqual(exported.trim().split("\n").map(line => JSON.parse(line).detail), [{}, {}]);
     assert.throws(
       () => exportSanitizedLogs({ filePath, destinationPath: filePath }),
       /Refusing to overwrite a launcher source log/,
@@ -135,7 +130,7 @@ test("Activity restores the last 300 valid events across rotation and incomplete
     assert.equal(records.length, 300);
     assert.equal(records[0].event, "event-2");
     assert.equal(records.at(-1).event, "event-301");
-    assert.equal(records[0].detail.authorization, "[redacted]");
+    assert.deepEqual(records[0].detail, {});
     fs.renameSync(`${filePath}.1`, filePath);
     fs.appendFileSync(filePath, "\npartial-final-line");
     assert.equal(createLogger({ filePath }).recent(300).length, 300);
@@ -178,14 +173,14 @@ test("diagnostic export preserves source logs through links and a destination re
   }
 });
 
-test("a closed Windows diagnostic pipe is recorded without becoming an uncaught process error", () => {
+test("a closed diagnostic pipe is swallowed without writing private error details", () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-web-gpt-process-pipe-"));
   const filePath = path.join(root, "process-stream-errors.log");
   const stream = new PassThrough();
   try {
-    installProcessDiagnosticGuards({ filePath, streams: [stream] });
+    installProcessDiagnosticGuards({ streams: [stream] });
     stream.emit("error", Object.assign(new Error("write EOF"), { code: "EOF" }));
-    assert.match(fs.readFileSync(filePath, "utf8"), /write EOF/);
+    assert.equal(fs.existsSync(filePath), false);
   } finally {
     stream.destroy();
     fs.rmSync(root, { recursive: true, force: true });

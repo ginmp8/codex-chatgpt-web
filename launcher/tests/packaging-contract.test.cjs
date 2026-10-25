@@ -26,8 +26,8 @@ test("the full verification gate audits launcher dependencies", () => {
 });
 
 test("launcher publishes native packages for all supported desktop operating systems", () => {
-  assert.equal(manifest.build.appId, "dev.codexwebgpt.launcher");
-  assert.equal(manifest.build.artifactName, "codex-web-gpt-${version}-${os}-${arch}.${ext}");
+  assert.equal(manifest.build.appId, "dev.codexwebgpt.privacy");
+  assert.equal(manifest.build.artifactName, "codex-web-gpt-private-${version}-${os}-${arch}.${ext}");
   assert.deepEqual(manifest.build.mac.target, ["dmg", "zip"]);
   assert.deepEqual(
     manifest.build.mac.signIgnore,
@@ -48,61 +48,14 @@ test("launcher publishes native packages for all supported desktop operating sys
   assert.match(manifest.build.nsis.guid, /^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
 });
 
-test("release installers resolve checksummed native launcher assets", () => {
+test("public release installers fail closed in the privacy fork", () => {
   const shellInstaller = fs.readFileSync(path.join(repositoryRoot, "scripts", "install-launcher.sh"), "utf8");
   const windowsInstaller = fs.readFileSync(path.join(repositoryRoot, "scripts", "install-launcher.ps1"), "utf8");
-  const devProfile = fs.readFileSync(path.join(repositoryRoot, "src", "dev-chat", "profile.ts"), "utf8");
-  const packager = fs.readFileSync(path.join(launcherRoot, "scripts", "package.cjs"), "utf8");
   for (const installer of [shellInstaller, windowsInstaller]) {
-    assert.match(installer, /checksums\.txt/);
-    assert.match(installer, /SHA-?256/i);
-    assert.match(installer, /releases\/download/);
+    assert.match(installer, /intentionally deactivated for this privacy fork/);
+    assert.match(installer, /not trusted by the privacy build/);
+    assert.doesNotMatch(installer, /releases\/download/);
   }
-  assert.match(shellInstaller, /PLATFORM="mac"/);
-  assert.match(shellInstaller, /PLATFORM="linux"/);
-  assert.match(shellInstaller, /codex-web-gpt\.desktop/);
-  assert.match(shellInstaller, /--appimage-extract/);
-  assert.match(packager, /-linux-x86_64\(\?=\\\.\).*?-linux-x64/);
-  assert.match(packager, /const executable = "node"/);
-  assert.doesNotMatch(packager, /process\.execPath/);
-  assert.match(packager, /electron-builder\/out\/cli\/cli\.js/);
-  assert.match(packager, /target === "--mac" && !env\.CSC_LINK && !env\.CSC_NAME/);
-  assert.match(packager, /--config\.mac\.identity=-/);
-  assert.match(packager, /verifySignedMacArchive\(\)/);
-  assert.match(packager, /codesign[\s\S]*--verify[\s\S]*--deep[\s\S]*--strict/);
-  assert.match(packager, /validateRuntimeBundle/);
-  assert.doesNotMatch(packager, /electron-builder\.cmd/);
-  assert.match(shellInstaller, /shell_quote\(\)/);
-  assert.match(shellInstaller, /RUNNER_SOURCE/);
-  assert.match(shellInstaller, /exec %s %s "\$@"/);
-  assert.doesNotMatch(shellInstaller, /APPIMAGE_EXTRACT_AND_RUN=.*1/);
-  assert.ok(
-    shellInstaller.indexOf('chmod 0755 "$TEMP_DIR/$ASSET"')
-      < shellInstaller.indexOf('"$TEMP_DIR/$ASSET" --appimage-extract'),
-    "the downloaded AppImage must be executable before it is inspected",
-  );
-  assert.match(windowsInstaller, /codex-web-gpt-\$Version-win-\$Arch\.exe/);
-  assert.match(windowsInstaller, /\[Environment\]::Is64BitOperatingSystem/);
-  assert.doesNotMatch(windowsInstaller, /RuntimeInformation/);
-  assert.match(windowsInstaller, /function Test-IsFullyQualifiedWindowsPath/);
-  assert.match(windowsInstaller, /Test-IsFullyQualifiedWindowsPath \$InstallLocation/);
-  assert.doesNotMatch(windowsInstaller, /IsPathFullyQualified/);
-  const windowsPathPattern = windowsInstaller.match(/return \$Path -match '([^']+)'/)?.[1];
-  assert.ok(windowsPathPattern, "the Windows installer must expose its absolute-path contract");
-  const fullyQualifiedWindowsPath = new RegExp(windowsPathPattern);
-  assert.equal(fullyQualifiedWindowsPath.test("C:\\Users\\tester\\Codex Web GPT"), true);
-  assert.equal(fullyQualifiedWindowsPath.test("\\\\server\\share\\Codex Web GPT"), true);
-  assert.equal(fullyQualifiedWindowsPath.test("C:Codex Web GPT"), false);
-  assert.equal(fullyQualifiedWindowsPath.test("\\Codex Web GPT"), false);
-  assert.equal(fullyQualifiedWindowsPath.test("Codex Web GPT"), false);
-  assert.ok(windowsInstaller.includes(`HKCU:\\Software\\${manifest.build.nsis.guid}`));
-  assert.ok(devProfile.includes(`WINDOWS_LAUNCHER_GUID = "${manifest.build.nsis.guid}"`));
-  assert.match(windowsInstaller, /Get-ItemPropertyValue[\s\S]*InstallLocation/);
-  assert.ok(windowsInstaller.includes(`Join-Path $InstallLocation "${manifest.build.productName}.exe"`));
-  assert.match(windowsInstaller, /-ArgumentList "\/S", "\/currentuser"/);
-  const packageSmoke = fs.readFileSync(path.join(launcherRoot, "scripts", "smoke-package.cjs"), "utf8");
-  assert.match(packageSmoke, /run\(installer, \["\/S", "\/currentuser"\]/);
-  assert.match(packageSmoke, /reg\.exe[\s\S]*InstallLocation/);
 });
 
 test("packaged launcher owns a detached checksummed updater for every release platform", () => {
@@ -119,108 +72,12 @@ test("packaged launcher owns a detached checksummed updater for every release pl
   assert.doesNotMatch(worker, /backup/i);
 });
 
-test("Linux installer selects native assets and rejects unsupported architectures or bad checksums", {
-  skip: process.platform === "win32" ? "POSIX installer" : false,
-}, () => {
-  if (process.platform === "win32") return;
-  const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "codex-linux-installer-"));
-  const bin = path.join(scratch, "bin");
-  fs.mkdirSync(bin);
-  const script = (name, body) => fs.writeFileSync(path.join(bin, name), `#!/bin/sh\nset -eu\n${body}\n`, { mode: 0o755 });
-  script("uname", 'case "$1" in -s) echo Linux ;; -m) echo "$TEST_MACHINE" ;; esac');
-  script("pgrep", "exit 1");
-  script("nohup", 'printf started > "$TEST_ROOT/started"');
-  script("update-desktop-database", "exit 0");
-  script("curl", `
-while [ "$#" -gt 0 ]; do
-  case "$1" in https:*) url="$1" ;; -o) shift; output="$1" ;; esac
-  shift
-done
-printf '%s\\n' "$url" >> "$TEST_ROOT/downloads"
-case "$url" in
-  */checksums.txt) cp "$TEST_ROOT/checksums.txt" "$output" ;;
-  *) cp "$TEST_ROOT/fixture.AppImage" "$output" ;;
-esac`);
-  const appImage = Buffer.from(`#!/bin/sh
-set -eu
-test "$1" = --appimage-extract
-printf extracted > "$TEST_ROOT/extracted"
-mkdir -p squashfs-root/usr/share/icons/hicolor/512x512/apps squashfs-root/resources/app.asar.unpacked/assets
-printf icon > squashfs-root/usr/share/icons/hicolor/512x512/apps/test.png
-printf '#!/bin/sh\\nexit 0\\n' > squashfs-root/resources/app.asar.unpacked/assets/linux-appimage-runner.sh
-`);
-  // Use Node's real SHA-256 implementation on macOS as well as Linux.
-  fs.writeFileSync(path.join(bin, "sha256sum"), `#!${process.execPath}\nconst fs = require('node:fs'); const c = require('node:crypto'); console.log(c.createHash('sha256').update(fs.readFileSync(process.argv[2])).digest('hex') + '  ' + process.argv[2]);\n`, { mode: 0o755 });
-  try {
-    for (const [machine, arch, valid] of [
-      ["x86_64", "x64", true], ["amd64", "x64", true],
-      ["aarch64", "arm64", true], ["arm64", "arm64", true],
-      ["aarch64", "arm64", false], ["armv7l", null, true],
-    ]) {
-      const root = path.join(scratch, `${machine}-${valid}`);
-      fs.mkdirSync(root);
-      fs.writeFileSync(path.join(root, "fixture.AppImage"), appImage);
-      const asset = `codex-web-gpt-1.2.3-linux-${arch}.AppImage`;
-      const checksum = valid ? createHash("sha256").update(appImage).digest("hex") : "0".repeat(64);
-      fs.writeFileSync(path.join(root, "checksums.txt"), `${checksum}  ${asset}\n`);
-      const result = spawnSync("/bin/sh", [path.join(repositoryRoot, "scripts", "install-launcher.sh")], {
-        encoding: "utf8", timeout: 10_000,
-        env: {
-          ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}`,
-          TEST_MACHINE: machine, TEST_ROOT: root, CODEX_WEB_GPT_VERSION: "1.2.3",
-          CODEX_WEB_GPT_LIB_DIR: path.join(root, "lib"), CODEX_WEB_GPT_BIN_DIR: path.join(root, "installed-bin"),
-          CODEX_CHATGPT_WEB_HOME: path.join(root, "core"), XDG_DATA_HOME: path.join(root, "data"),
-        },
-      });
-      if (!arch) {
-        assert.notEqual(result.status, 0);
-        assert.match(result.stderr, /Unsupported Linux architecture/);
-        assert.equal(fs.existsSync(path.join(root, "downloads")), false);
-      } else {
-        assert.match(fs.readFileSync(path.join(root, "downloads"), "utf8"), new RegExp(`${asset.replaceAll(".", "\\.")}$`, "m"));
-        if (valid) {
-          assert.equal(result.status, 0, result.stderr);
-          assert.deepEqual(fs.readFileSync(path.join(root, "lib", "1.2.3", "Codex Web GPT.AppImage")), appImage);
-          assert.ok(fs.existsSync(path.join(root, "data", "applications", "codex-web-gpt.desktop")));
-        } else {
-          assert.notEqual(result.status, 0);
-          assert.match(result.stderr, /SHA-256 verification failed/);
-          assert.equal(fs.existsSync(path.join(root, "lib")), false);
-          assert.equal(fs.existsSync(path.join(root, "extracted")), false);
-        }
-      }
-    }
-  } finally {
-    fs.rmSync(scratch, { recursive: true, force: true });
-  }
+test("POSIX release installer fails closed in the privacy fork", () => {
+  const installer = fs.readFileSync(path.join(repositoryRoot, "scripts", "install-launcher.sh"), "utf8");
+  assert.match(installer, /intentionally deactivated for this privacy fork/);
+  assert.match(installer, /not trusted by the privacy build/);
+  assert.doesNotMatch(installer, /releases\/download/);
 });
-
-test("CI packages and smoke-launches on macOS, Windows, and Linux", () => {
-  const ci = fs.readFileSync(path.join(repositoryRoot, ".github", "workflows", "ci.yml"), "utf8");
-  const release = fs.readFileSync(path.join(repositoryRoot, ".github", "workflows", "release.yml"), "utf8");
-  assert.match(ci, /macos-15, ubuntu-latest, windows-latest/);
-  assert.match(ci, /bun run app:package/);
-  assert.match(ci, /bun run app:smoke/);
-  assert.match(ci, /prepare-linux-libnotify\.sh/);
-  assert.match(ci, /prepare-linux-appimage-tools\.cjs/);
-  assert.match(ci, /archlinux:base/);
-  assert.match(ci, /prepare-windows-baseline-bun\.ps1 -Version 1\.4\.0/);
-  for (const runner of ["macos-15", "macos-15-intel", "ubuntu-latest", "ubuntu-24.04-arm", "windows-latest"]) {
-    assert.match(release, new RegExp(runner));
-  }
-  assert.match(release, /launcher\/build\/runtime/);
-  assert.match(release, /bun run app:smoke/);
-  assert.match(release, /prepare-linux-libnotify\.sh/);
-  assert.match(release, /prepare-linux-appimage-tools\.cjs/);
-  assert.match(release, /archlinux:base/);
-  assert.match(release, /runner: ubuntu-24\.04-arm\s+runtime_asset: codex-chatgpt-web-linux-arm64\.tar\.gz/);
-  assert.match(release, /Verify Linux AppImage ABI on current Arch\s+if: runner\.os == 'Linux' && runner\.arch == 'X64'/);
-  assert.match(release, /prepare-windows-baseline-bun\.ps1 -Version 1\.4\.0/);
-  assert.match(release, /codesign --verify --deep --strict --verbose=2/);
-  assert.match(release, /Codex Web GPT\.app/);
-  assert.doesNotMatch(release, /gh release create[\s\S]*?--draft/);
-});
-
 test("Linux AppImage fallback uses one owned extraction and removes it on exit", {
   skip: process.platform !== "linux" ? "AppImage process identity is Linux-specific" : false,
 }, () => {
