@@ -1,66 +1,66 @@
-# Codex ChatGPT Web — revisão de privacidade (6.1.13-privacy.1)
+# Codex ChatGPT Web — Privacy Review (6.1.13-privacy.1)
 
-**Escopo:** ZIP `codex-chatgpt-web-main.zip` fornecido pelo usuário; inspeção estática de arquivos e fluxos de rede, navegador, autenticação, atualização, telemetria, MCP e empacotamento. Cópia resultante modificada em diretório separado; original mantido intacto. **NÃO é um parecer de segurança completo, pentest ou certificação de ausência de spyware.**
+**Scope:** User-provided `codex-chatgpt-web-main.zip`; static inspection of files and network, browser, authentication, update, telemetry, MCP, and packaging flows. The resulting copy was modified in a separate directory; the original was kept intact. **This is NOT a complete security assessment, penetration test, or certification that spyware is absent.**
 
-**Conclusão:** não foi identificada, nos fluxos inspecionados, uma rotina implementada para transferir conversas, credenciais ou cookies à infraestrutura do mantenedor. Os caminhos de comunicação para `chatgpt.com`/OpenAI e loopback são esperados pelo produto. Entretanto, a ausência de exfiltração não foi demonstrada em execução, o código contém dependências externas não auditadas individualmente e continua sujeito à sessão, ao SO, ao Codex e ao túnel MCP. **Não é prudente autenticar uma conta Business confidencial antes de validar o build e a rede em ambiente isolado.**
+**Conclusion:** No implemented routine for transferring conversations, credentials, or cookies to the maintainer's infrastructure was identified in the inspected flows. Communication paths to `chatgpt.com`/OpenAI and loopback are expected by the product. However, absence of exfiltration was not demonstrated at runtime; the code contains external dependencies that were not individually audited and remains subject to the session, OS, Codex, and MCP tunnel. **It is not prudent to authenticate a confidential Business account before validating the build and network in an isolated environment.**
 
-## Constatações e evidências (repositório original)
+## Findings and evidence (original repository)
 
-| Área | Evidência estática | Leitura correta |
+| Area | Static evidence | Correct interpretation |
 | --- | --- | --- |
-| Atualizações de executáveis | `launcher/electron/main.cjs` importa e inicializa `createUpdateController`, com `checkOnce()` no startup. `launcher/electron/update.cjs` acessa `https://api.github.com/repos/miuuyy/codex-chatgpt-web/releases/latest`, baixa artefatos e usa `update-worker.cjs` para substituir o aplicativo | **Risco de cadeia de suprimentos:** uma atualização futura poderia introduzir código com acesso ao perfil. Não prova exfiltração na versão analisada |
-| Contato desnecessário com mantenedor | `launcher/electron/main.cjs` exigia `githubOpened` e `xOpened` antes de finalizar onboarding; `launcher/src/App.tsx` apresentava as ações | Exposição de visita ao site/rede social, não envio demonstrado de chats |
-| Logs locais | `launcher/electron/logging.cjs` registra detalhes de eventos e erros. Sanitização original protege diversos tokens, mas não garante anonimização de toda string livre | **Possível exposição local** por logs ou compartilhamento de diagnósticos; nenhuma exportação automática ao mantenedor foi demonstrada |
-| Diagnósticos de navegador | `src/adapters/chatgpt-web/browser-worker.ts` (`ChatGptBrowserDiagnostics`) tem persistência de checkpoints e capturas opcionais de tela/estrutura | Metadados/snapshots locais podem revelar informação sensível, especialmente se exportados ou acessados por malware |
-| Métricas de utilização | `launcher/electron/limits-controller.cjs` e `limits-store.cjs` persistem hashes de identificadores de conta, modelos e horários se o usuário habilita Limits | **Armazenamento local opcional**, não evidência de coleta pelo mantenedor |
-| Sessão autenticada | Perfil persistente do Electron em `launcher/electron/profile.cjs` e `browser-host.cjs` | Quem controla o usuário do sistema operacional pode acessar o perfil do aplicativo; não é um segredo que se torna invulnerável por estar na máquina local |
-| HTTP local e ferramentas | `src/server.ts` oferece Responses por loopback; `docs/security-model.md` declara ausência de autenticação bearer independente no endpoint local. Full mode usa MCP com ferramentas Codex | **Risco residual de acesso de processo local** e execução de ferramentas, mesmo após o hardening; não foi demonstrada exploração |
-| Túnel e chaves | `src/tunnel.ts`, `launcher/electron/tunnel-proxy.cjs`: túnel OpenAI outbound para Full mode | Um serviço externo legítimo continua necessário; chave e permissões MCP ainda têm de ser protegidas |
-| Rede para mantenedor | Na análise estática de chamadas de rede do launcher/bridge, a consulta a release do mantenedor se concentra no subsistema de updater; existem links estáticos de documentação | Não há prova de que todo tráfego futuro, binários de terceiros ou comportamento real fiquem restritos a esses destinos |
+| Executable updates | `launcher/electron/main.cjs` imports and initializes `createUpdateController`, with `checkOnce()` at startup. `launcher/electron/update.cjs` accesses `https://api.github.com/repos/miuuyy/codex-chatgpt-web/releases/latest`, downloads artifacts, and uses `update-worker.cjs` to replace the application | **Supply-chain risk:** a future update could introduce code with access to the profile. This does not prove exfiltration in the version reviewed |
+| Unnecessary maintainer contact | `launcher/electron/main.cjs` required `githubOpened` and `xOpened` before completing onboarding; `launcher/src/App.tsx` presented the actions | Exposure of a site/social-media visit; no chat transmission was demonstrated |
+| Local logs | `launcher/electron/logging.cjs` records event and error details. Original sanitization protects several tokens but does not guarantee anonymization of every free-form string | **Possible local exposure** through logs or sharing diagnostics; no automatic export to the maintainer was demonstrated |
+| Browser diagnostics | `src/adapters/chatgpt-web/browser-worker.ts` (`ChatGptBrowserDiagnostics`) persists checkpoints and optional screenshots/structure captures | Local metadata/snapshots may reveal sensitive information, especially if exported or accessed by malware |
+| Usage metrics | `launcher/electron/limits-controller.cjs` and `limits-store.cjs` persist hashes of account identifiers, models, and timestamps if the user enables Limits | **Optional local storage**, not evidence of collection by the maintainer |
+| Authenticated session | Persistent Electron profile in `launcher/electron/profile.cjs` and `browser-host.cjs` | Anyone controlling the operating-system user can access the application profile; local storage does not make a secret invulnerable |
+| Local HTTP and tools | `src/server.ts` exposes Responses over loopback; `docs/security-model.md` states that the local endpoint has no independent bearer authentication. Full mode uses MCP with Codex tools | **Residual risk from local process access** and tool execution, even after hardening; no exploit was demonstrated |
+| Tunnel and keys | `src/tunnel.ts`, `launcher/electron/tunnel-proxy.cjs`: outbound OpenAI tunnel for Full mode | A legitimate external service remains necessary; the key and MCP permissions must still be protected |
+| Network traffic to maintainer | In the static review of launcher/bridge network calls, the maintainer release check is concentrated in the updater subsystem; static documentation links also exist | There is no proof that all future traffic, third-party binaries, or actual behavior will remain limited to these destinations |
 
-**Estados de evidência:** os caminhos acima são fatos estáticos inspecionados; exploração, envio de conversas ao mantenedor, robustez de todos os controles em execução e ausência definitiva de backdoors **não foram demonstrados nem refutados**. Não atribuí intenção maliciosa ao autor.
+**Evidence status:** The paths above are statically inspected facts; exploitation, conversation transmission to the maintainer, runtime robustness of all controls, and definitive absence of backdoors **were neither demonstrated nor disproved**. No malicious intent was attributed to the author.
 
-## Alterações na cópia privada
+## Changes in the private copy
 
-1. **Updater:** removido o controlador da inicialização e desativado o IPC de instalação; `update.cjs` e `update-worker.cjs` excluídos do pacote; `compareVersions` extraído para o módulo sem rede `version-compare.cjs`.
-2. **Instalação:** `scripts/install.sh`, `scripts/install-launcher.sh` e `scripts/install-launcher.ps1` falham explicitamente; publicação de releases original desativada. README aponta somente à revisão e compilação local. Não há binário upstream implícito.
-3. **Identidade e cookies:** `appId`, produto, perfil local e partições do Electron separados (`.codex-chatgpt-web-private`, `Codex Web GPT Private`). Sobrescritas explícitas que tentam reutilizar os caminhos padrão do upstream são rejeitadas; perfis DEV também separados. `CODEX_HOME` permanece compartilhável para integração intencional com Codex e PandaCode.
-4. **Coexistência:** a cópia privada recusa migrar, interromper ou desinstalar um runtime marcado como gerenciado externamente; esse runtime deve ser desligado e removido por seu proprietário antes de conectar o novo.
-5. **Logging:** registros persistidos contêm apenas data, nível, nome estático do evento e `detail: {}`; exportação/releitura não levam detalhes. Stacktraces crus do processo não são gravados pelo guard de diagnóstico. **Outros componentes ou o SO podem continuar emitindo seus próprios logs**.
-6. **Diagnósticos do navegador:** implementação do `ChatGptBrowserDiagnostics` convertida em no-op; checkpoints e screenshots não são gravados por essa classe. Isso reduz capacidade de depuração.
-7. **Usage tracking:** controlador substituído por uma implementação desabilitada. `trackUsage:false` é enviado pelo controle do launcher; a função de coleta de identidade da sessão não deve ser chamada por esse fluxo.
-8. **Saídas externas:** links do GitHub/X do mantenedor removidos do onboarding e da sidebar, handlers sociais desativados; launcher só abre URLs exatas previamente permitidas de ChatGPT/plataforma/Help Center. Popups arbitrários da página não podem abrir links no navegador do sistema; provedores de SSO ainda precisam ser validados.
-9. **Autorizações:** o modo `--auto-approve-tool-calls` é rejeitado no CLI; configuração e browser-worker forçam `false`; a opção GUI também rejeita ativação. **Isso não elimina poderes do MCP: aprovações do workspace ChatGPT e do Codex continuam relevantes.**
-10. **Inicialização automática:** `autoStart` padrão desativado, sem impedir opção explícita do usuário.
+1. **Updater:** Removed the startup controller and disabled installation IPC; excluded `update.cjs` and `update-worker.cjs` from the package; extracted `compareVersions` to the network-free `version-compare.cjs` module.
+2. **Installation:** `scripts/install.sh`, `scripts/install-launcher.sh`, and `scripts/install-launcher.ps1` fail explicitly; publishing original releases is disabled. README points only to local review and build. No upstream binary is implicitly included.
+3. **Identity and cookies:** Separated `appId`, product, local profile, and Electron partitions (`.codex-chatgpt-web-private`, `Codex Web GPT Private`). Explicit overrides that attempt to reuse upstream default paths are rejected; DEV profiles are also separate. `CODEX_HOME` remains shareable for intentional Codex and PandaCode integration.
+4. **Coexistence:** The private copy refuses to migrate, interrupt, or uninstall a runtime marked as externally managed; its owner must shut down and remove that runtime before connecting the new one.
+5. **Logging:** Persisted records contain only date, level, static event name, and `detail: {}`; export/re-read does not include details. Raw process stack traces are not written by the diagnostic guard. **Other components or the OS may still emit their own logs.**
+6. **Browser diagnostics:** `ChatGptBrowserDiagnostics` was converted to a no-op; this class does not write checkpoints or screenshots. This reduces debugging capability.
+7. **Usage tracking:** Replaced the controller with a disabled implementation. `trackUsage:false` is sent by the launcher controller; the session identity collection function should not be called by this flow.
+8. **External destinations:** Removed the maintainer's GitHub/X links from onboarding and sidebar, disabled social handlers; the launcher opens only exact pre-approved ChatGPT/platform/Help Center URLs. Arbitrary page popups cannot open links in the system browser; SSO providers still need validation.
+9. **Approvals:** The `--auto-approve-tool-calls` mode is rejected by the CLI; configuration and browser-worker force `false`; the GUI option also rejects activation. **This does not eliminate MCP capabilities: ChatGPT workspace and Codex approvals remain relevant.**
+10. **Automatic startup:** `autoStart` is disabled by default, without preventing an explicit user choice.
 
-**Mantido intencionalmente:** o uso da interface ChatGPT autenticada, catálogo de modelos `(Web)`, streaming, seleção de Effort, Codex CLI/app-server, compilação do código, integrações MCP opt-in e outras capacidades do upstream não explicitamente removidas.
+**Intentionally retained:** Use of the authenticated ChatGPT UI, `(Web)` model catalog, streaming, Effort selection, Codex CLI/app-server, source builds, opt-in MCP integrations, and other upstream capabilities not explicitly removed.
 
-## Riscos residuais e não conformidades
+## Residual risks and nonconformities
 
-- **Sem garantia sobre o sistema operacional:** outro processo executado no mesmo usuário ainda pode ler arquivos de perfil/cookies e conectar-se ao Responses local, conforme o ambiente e permissões. Defender-se disso requer isolamento de SO, contas distintas, controles de acesso, firewall e/ou autenticação efetiva no contrato do bridge.
-- **Sem auditoria completa de dependências e build:** pacotes do `bun.lock`, `launcher/bun.lock`, runtime Bun/Electron e binários de túnel precisam de revisão e verificação de hashes em máquina controlada. Não executar comandos `curl | sh` ou `irm | iex` do upstream.
-- **Conta ChatGPT Business:** mensagens são enviadas ao ChatGPT, não a uma API paga de inferência por este caminho de browser segundo a arquitetura do upstream; isso não garante ausência de limites, custo de serviços auxiliares nem autorização contratual. Developer Mode e políticas da organização podem vedar MCP ou automação.
-- **Full harness:** pede um túnel OpenAI, chave do tunnel-client e conector com possibilidade de ações amplas. Adoção de MCP e acesso a arquivos exige revisão de permissões. Desativação de clique automático não implica que todas as chamadas são manualmente aprovadas pelo usuário.
-- **Mudanças de UI e SSO:** automação por DOM não oficial pode quebrar. A política mais estrita contra `window.open` pode impedir alguns fluxos empresariais de login.
-- **Solução não compilada/testada ao vivo:** não executamos login, modelo, envio real, sandbox de arquivos, teste de rede, integração PandaCode, smoke/E2E, fuzzing, build Rust/Node nem teste de dependências. O ZIP contém apenas **código-fonte candidato**.
-- **Não se atribui intenção:** a presença de atualizador, logs e contadores não é por si evidência de espionagem, mas amplia superfícies que o usuário explicitamente quer reduzir.
+- **No operating-system guarantee:** Another process running as the same user may still read profile/cookie files and connect to local Responses, depending on the environment and permissions. Defending against this requires OS isolation, separate accounts, access controls, a firewall, and/or effective authentication in the bridge contract.
+- **No complete dependency/build audit:** Packages in `bun.lock` and `launcher/bun.lock`, Bun/Electron runtimes, and tunnel binaries need review and hash verification on a controlled machine. Do not run upstream `curl | sh` or `irm | iex` commands.
+- **ChatGPT Business account:** According to the upstream architecture, messages are sent to ChatGPT, not to a paid inference API through this browser path; this does not guarantee absence of limits, auxiliary service costs, or contractual authorization requirements. Developer Mode and organizational policies may prohibit MCP or automation.
+- **Full harness:** Requires an OpenAI tunnel, a tunnel-client key, and a connector that may allow broad actions. MCP adoption and file access require permission review. Disabling automatic clicks does not mean every call is manually approved by the user.
+- **UI and SSO changes:** Unofficial DOM automation may break. The stricter `window.open` policy may prevent some enterprise login flows.
+- **Solution not built or live-tested:** We did not run login, model, real message sending, file sandbox, network, PandaCode integration, smoke/E2E, fuzzing, Rust/Node build, or dependency tests. The ZIP contains only **candidate source code**.
+- **No intent attributed:** The presence of an updater, logs, and counters is not by itself evidence of spying, but expands surfaces the user explicitly wants to reduce.
 
-## Verificações efetuadas nesta entrega
+## Checks performed for this delivery
 
-- Inspeção manual estática de caminhos de entrada/saída, perfis, updater, navegador, logging, MCP e persistência; contraste de código original vs cópia privada.
-- Varredura estática por endpoints externos/telemetria e por `require()` relativos em módulos Electron; não abrange todo comportamento de dependências.
-- `node --check launcher/electron/*.cjs`: **parse válido**; não executa aplicação.
-- TypeScript compiler API (`createSourceFile`) para arquivos `.ts/.tsx` editados: **parse válido**; não faz typecheck.
-- `python security/verify_privacy.py`: contrato estático de desativação/isolamento; não prova ausência de backdoor nem implementação executável.
-- **Não executado:** `bun install`, `bun run verify`, `bun run app:package`, testes com servidor ou conta, CI multissistema. O Bun 1.4.0 exigido não está instalado no ambiente de auditoria. Não executei código do projeto devido à ausência de uma sandbox isolada aprovada.
+- Manual static inspection of input/output paths, profiles, updater, browser, logging, MCP, and persistence; comparison of original code with the private copy.
+- Static scan for external endpoints/telemetry and relative `require()` calls in Electron modules; this does not cover all dependency behavior.
+- `node --check launcher/electron/*.cjs`: **valid parse**; does not run the application.
+- TypeScript compiler API (`createSourceFile`) for edited `.ts/.tsx` files: **valid parse**; does not type-check.
+- `python security/verify_privacy.py`: static contract for disabling/isolation; does not prove absence of a backdoor or executable implementation.
+- **Not run:** `bun install`, `bun run verify`, `bun run app:package`, tests with a server or account, multi-system CI. Required Bun 1.4.0 was not installed in the audit environment. Project code was not run because no approved isolated sandbox was available.
 
-## Procedimento responsável para validação antes de uso
+## Responsible validation procedure before use
 
-1. Auditar o diff e os checksums do ZIP contra a fonte original e o `bun.lock` / `launcher/bun.lock`.
-2. Montar ambiente temporário de usuário não privilegiado, sem secrets reais, e controle de tráfego de saída; validar dependências e scripts antes da instalação.
-3. Compilar somente a cópia privada com Bun 1.4.0; rodar todos os testes offline possíveis, checar eventuais falhas por contratos intencionalmente alterados e garantir que o binário empacotado exclui `update.cjs` e `update-worker.cjs`.
-4. Testar login com uma conta de **teste autorizada**, observar todo tráfego DNS/HTTP/TLS sem tentar quebrar criptografia ou capturar credenciais, e confirmar que não ocorre comunicação com domínios de maintainers/telemetria.
-5. Confirmar que uso via Codex e PandaCode lista modelos `(Web)` e Effort e que ferramentas, cancelamento, SSO e rollback funcionam com permissões restritas.
-6. Antes de uma conta Business, solicitar autorização do administrador do workspace, documentar limites/termos e estabelecer recuperação: sair da sessão, revogar acesso/túnel e remover o bridge da configuração Codex.
+1. Audit the diff and ZIP checksums against the original source and `bun.lock` / `launcher/bun.lock`.
+2. Set up a temporary, unprivileged user environment with no real secrets and control over outbound traffic; validate dependencies and scripts before installation.
+3. Build only the private copy with Bun 1.4.0; run all possible offline tests, check for failures caused by intentionally changed contracts, and ensure the packaged binary excludes `update.cjs` and `update-worker.cjs`.
+4. Test login with an **authorized test account**, observe all DNS/HTTP/TLS traffic without attempting to break encryption or capture credentials, and confirm there is no communication with maintainer/telemetry domains.
+5. Confirm that Codex and PandaCode usage lists `(Web)` models and Effort, and that tools, cancellation, SSO, and rollback work with restricted permissions.
+6. Before using a Business account, request workspace administrator authorization, document limits/terms, and establish recovery steps: sign out, revoke access/tunnel, and remove the bridge from Codex configuration.
 
-**Parecer:** `INCONCLUSIVE` para a exigência “seguro para minha conta”; `STATIC_GATES_PASSED` para os controles de privacidade implementados após execução do verificador. Este documento não é uma liberação para produção.
+**Assessment:** `INCONCLUSIVE` for the requirement “safe for my account”; `STATIC_GATES_PASSED` for the privacy controls implemented after running the verifier. This document is not a production release approval.

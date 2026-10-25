@@ -1,28 +1,28 @@
 # Codex ChatGPT Web — Privacy Fork (6.1.13-privacy.1)
 
-**Versão de código-fonte isolada. Não é um executável pronto nem uma garantia de segurança.**
+**Isolated source-code fork. Not a ready-to-run executable or a security guarantee.**
 
-Esta cópia deriva do projeto `miuuyy/codex-chatgpt-web` na versão base 6.1.13.
-Seu objetivo é reduzir a exposição da conta e das conversas a terceiros por
-meio de atualizações e registros locais. As modificações e as limitações
-estão documentadas em [PRIVACY-REVIEW.md](PRIVACY-REVIEW.md).
+This copy is derived from `miuuyy/codex-chatgpt-web`, based on version 6.1.13.
+Its goal is to reduce third-party exposure of the account and conversations through
+updates and local records. Changes and limitations are documented in
+[PRIVACY-REVIEW.md](PRIVACY-REVIEW.md).
 
-## Proteções desta variante
+## Protections in this variant
 
-- Não busca nem instala atualizações publicadas pelo mantenedor original.
-- Scripts de instalação remota desativados; exige revisão e compilação local.
-- Perfil, cookies e diretórios privados separados do programa original.
-- Atualização de modelos do Codex ainda é mediada pelo bridge local, sem alterar o Codex.
-- Não armazena métricas locais de uso por conta; logs mantêm nomes de eventos,
-  mas eliminam valores textuais e o diagnóstico de navegador não grava capturas.
-- Remove requisito de visitar GitHub/X do mantenedor durante onboarding.
-- Desativa cliques automáticos de aprovação de ferramentas MCP.
+- Does not fetch or install updates published by the original maintainer.
+- Remote installation scripts are disabled; review and build locally.
+- Profile, cookies, and private directories are separate from the original program.
+- Codex model updates are still mediated by the local bridge, without modifying Codex.
+- Does not store local per-account usage metrics; logs retain event names,
+  but remove text values, and browser diagnostics do not save captures.
+- Removes the requirement to visit the maintainer's GitHub/X during onboarding.
+- Disables automatic approval clicks for MCP tools.
 
-## Compilação — somente após validação independente
+## Build — only after independent validation
 
-Usar ambiente confiável e isolado, revisar `bun.lock`, dependências e scripts de build.
-O projeto exige **Bun 1.4.0** e toolchain para Electron. Não execute instaladores
-ou binários do repositório original ao instalar esta variante.
+Use a trusted, isolated environment; review `bun.lock`, dependencies, and build scripts.
+The project requires **Bun 1.4.0** and the Electron toolchain. Do not run installers
+or binaries from the original repository when installing this variant.
 
 ```sh
 bun install --frozen-lockfile
@@ -30,28 +30,28 @@ bun run verify
 bun run app:package
 ```
 
-As etapas acima são **instruções**, não testes que tenham sido executados nesta entrega.
-O empacotamento faz uso de dependências externas; a variante não inclui um binário pré-compilado.
+The steps above are **instructions**, not tests that were run for this delivery.
+Packaging uses external dependencies; this variant does not include a prebuilt binary.
 
-### Para usar com Codex e PandaCode
+### Using with Codex and PandaCode
 
-O launcher utiliza o `CODEX_HOME` selecionado pelo Codex. Depois de compilar,
-abrir o programa, autenticar somente pela UI do ChatGPT e instalar os modelos,
-reinicie completamente os processos Codex. O PandaCode consulta `model/list` do
-Codex e poderá exibir os modelos `(Web)`, porém isso não foi testado com conta real.
-Full harness exige conector/túnel MCP no ChatGPT e permissões apropriadas;
-**não habilite acesso amplo a arquivos ou ferramentas sem avaliar as consequências**.
+The launcher uses the `CODEX_HOME` selected by Codex. After building,
+open the program, authenticate only through the ChatGPT UI, and install the models;
+then fully restart Codex processes. PandaCode queries Codex's `model/list` and
+may display `(Web)` models, but this has not been tested with a real account.
+Full harness requires an MCP connector/tunnel in ChatGPT and appropriate permissions;
+**do not enable broad file or tool access without assessing the consequences**.
 
-### Restrições conhecidas
+### Known limitations
 
-- A sessão do ChatGPT ainda é persistida localmente em Electron; outro programa
-  com acesso ao mesmo usuário de sistema operacional pode comprometer a sessão.
-- O bridge HTTP local não é uma fronteira contra outros processos locais do mesmo usuário.
-- ChatGPT, provedores de SSO e o túnel MCP (se ativado) são serviços externos legítimos.
-- O navegador pode ser alterado pelo ChatGPT; o projeto usa seletores não oficiais.
-- Este fork não remove a exposição inerente a ações MCP autorizadas pelo ChatGPT.
-- Versões posteriores deste fork exigem nova revisão. Sem atualização automática.
-- O uso de automação da interface web pode contrariar regras da OpenAI e do workspace.
+- The ChatGPT session is still persisted locally in Electron; another program
+  running as the same operating-system user may compromise the session.
+- The local HTTP bridge is not a boundary against other local processes running as the same user.
+- ChatGPT, SSO providers, and the MCP tunnel (if enabled) are legitimate external services.
+- ChatGPT may change the browser UI; the project uses unofficial selectors.
+- This fork does not remove the exposure inherent in MCP actions authorized by ChatGPT.
+- Later versions of this fork require a new review. There are no automatic updates.
+- Web UI automation may violate OpenAI or workspace rules.
 
-**Antes de autenticar uma conta Business, submeta a implementação e o ambiente
-à validação de segurança da organização.**
+**Before authenticating a Business account, submit the implementation and environment
+for your organization's security validation.**
