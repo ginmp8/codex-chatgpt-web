@@ -8,7 +8,7 @@ import { chatGptAssistantTurnSelector, chatGptTurnContainerSelector } from "../s
 import { ChatGptExternalTurnProgress } from "../src/adapters/chatgpt-web/turn-progress";
 
 test("the largest response diagnostics survive the launcher's safe-log string limit intact", () => {
-  const { sanitizeForExport } = require("../launcher/electron/logging.cjs");
+  const { redactText } = require("../launcher/electron/logging.cjs");
   const structures = Array.from({ length: 3 }, () => ({
     truncated: true,
     nodes: Array.from({ length: 200 }, (_, index) => ({
@@ -21,7 +21,7 @@ test("the largest response diagnostics survive the launcher's safe-log string li
   expect(entries).toHaveLength(3);
   const prefix = "[chatgpt-web] response_structure ";
   for (let index = 0; index < entries.length; index++) {
-    const exported = sanitizeForExport(entries[index]);
+    const exported = redactText(entries[index]);
     expect(exported).not.toContain("[truncated]");
     const payload = JSON.parse(exported.slice(prefix.length));
     expect(payload.turnCount).toBe(3);
