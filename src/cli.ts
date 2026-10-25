@@ -309,10 +309,7 @@ async function setupCommand(args: string[]): Promise<void> {
   if (tunnelId) options.tunnelId = tunnelId;
   if (runtimeKeyFile) options.runtimeKeyFile = runtimeKeyFile;
   options.forceLogin = takeFlag(args, "--login");
-  if (takeFlag(args, "--auto-approve-tool-calls")) {
-    throw new Error("Privacy build prohibits automatic approval of MCP tool calls");
-  }
-  options.autoApproveToolCalls = false;
+  options.autoApproveToolCalls = takeFlag(args, "--auto-approve-tool-calls");
   const predictions = takeFlag(args, "--composer-predictions");
   const noPredictions = takeFlag(args, "--no-composer-predictions");
   if (predictions && noPredictions) throw new Error("Choose --composer-predictions or --no-composer-predictions");

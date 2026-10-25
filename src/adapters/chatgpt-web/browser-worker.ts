@@ -2039,7 +2039,7 @@ export function resolveBrowserConfig(provider: CodexProviderConfig): ResolvedBro
     chromeExecutablePath: resolve(expandUserPath(configured.chromeExecutablePath?.trim() || defaultChromeExecutable())),
     ...(turnTimeoutMs !== undefined ? { turnTimeoutMs } : {}),
     headed: configured.headed !== false,
-    autoApproveToolCalls: false,
+    autoApproveToolCalls: configured.browserInteractionMode !== "manual" && configured.autoApproveToolCalls === true,
     useSavedChats: configured.useSavedChats === true,
   };
 }

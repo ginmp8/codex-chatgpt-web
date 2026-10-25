@@ -650,7 +650,7 @@ export function providerConfig(config: AppConfig): CodexProviderConfig {
       experimentalFreshConversationPerTurn: !manual && config.experimentalFreshConversationPerTurn === true,
       useSavedChats: config.useSavedChats === true,
       ...(config.stallTimeoutSec !== undefined ? { stallTimeoutSec: config.stallTimeoutSec } : {}),
-      autoApproveToolCalls: false,
+      autoApproveToolCalls: manual ? false : config.autoApproveToolCalls,
     },
   };
 }

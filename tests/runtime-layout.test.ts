@@ -102,6 +102,18 @@ test("default setup uses the fixed production connector identities", () => {
   expect(defaultConfig("full").zeroRiskProEnabled).toBe(false);
 });
 
+test("one-time tool approvals are opt-in and cannot reach Zero Risk", () => {
+  const config = defaultConfig("full");
+  expect(config.autoApproveToolCalls).toBe(false);
+  expect(providerConfig(config).chatgptWeb?.autoApproveToolCalls).toBe(false);
+
+  config.autoApproveToolCalls = true;
+  expect(providerConfig(config).chatgptWeb?.autoApproveToolCalls).toBe(true);
+
+  config.browserInteractionMode = "manual";
+  expect(providerConfig(config).chatgptWeb?.autoApproveToolCalls).toBe(false);
+});
+
 test.each([
   ["production", CHATGPT_CONNECTOR_NAME],
   ["development", DEV_CHATGPT_CONNECTOR_NAME],
