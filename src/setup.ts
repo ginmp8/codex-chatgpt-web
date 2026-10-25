@@ -298,8 +298,14 @@ function baseConfig(
     config.browserHost = "managed-chrome";
     delete config.browserHostDescriptorPath;
   }
-  if (options.autoApproveToolCalls === true) throw new Error("Privacy build prohibits automatic tool approval");
-  config.autoApproveToolCalls = false;
+  if (options.autoApproveToolCalls === true && config.browserInteractionMode === "manual") {
+    throw new Error("Automatic tool approvals are unavailable in Zero Risk mode");
+  }
+  if (config.browserInteractionMode === "manual") {
+    config.autoApproveToolCalls = false;
+  } else if (options.autoApproveToolCalls !== undefined) {
+    config.autoApproveToolCalls = options.autoApproveToolCalls;
+  }
   if (options.composerPredictionsEnabled !== undefined) {
     config.composerPredictionsEnabled = options.composerPredictionsEnabled;
   }

@@ -54,7 +54,16 @@ def main():
     check('no forced maintainer social visits', 'Open the GitHub and X pages before continuing' not in main_src and 'github.com/miuuyy' not in main_src and 'x.com/miu' not in main_src and 'WelcomeAction' not in contents('launcher/src/App.tsx'))
     check('only official external URLs from launcher', 'ALLOWED_EXTERNAL_URLS.has(parsed.toString())' in main_src)
     check('unknown web popups blocked', 'shell.openExternal' not in browser)
-    check('explicit approval required in runtime and CLI', 'Privacy build requires manual tool approval' in runtime and 'Privacy build prohibits automatic approval' in cli and 'config.autoApproveToolCalls = false;' in setup and 'autoApproveToolCalls: false,' in worker)
+    check('one-time tool approval requires opt-in and Zero Risk remains manual',
+        'Privacy build requires manual tool approval' not in runtime
+        and 'Automatic tool approvals are unavailable in Zero Risk mode' in runtime
+        and 'options.autoApproveToolCalls = takeFlag(args, "--auto-approve-tool-calls");' in cli
+        and 'config.autoApproveToolCalls = options.autoApproveToolCalls;' in setup
+        and 'if (config.browserInteractionMode === "manual") {' in setup
+        and 'autoApproveToolCalls: false,' in contents('launcher/electron/state.cjs')
+        and 'autoApproveToolCalls: manual ? false : config.autoApproveToolCalls' in contents('src/config.ts')
+        and 'autoApproveToolCalls: configured.browserInteractionMode !== "manual" && configured.autoApproveToolCalls === true' in worker
+        and 'getByRole("button", { name: /^Allow(?: once)?$/ })' in worker)
     check('release pipeline disabled', 'Privacy fork - release disabled' in release and 'workflow_dispatch:' in release and 'action-gh-release' not in release)
     scripts = [contents(x) for x in ('scripts/install.sh','scripts/install-launcher.sh','scripts/install-launcher.ps1')]
     check('three remote installers fail closed', all('Disabled:' in x and ('exit 1' in x or 'throw ' in x) for x in scripts))

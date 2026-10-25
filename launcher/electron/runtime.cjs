@@ -1221,7 +1221,6 @@ class RuntimeHost {
   }
 
   async setAutoApproveToolCalls(enabled) {
-    if (enabled === true) throw new Error("Privacy build requires manual tool approval; automatic approval is disabled");
     if (typeof enabled !== "boolean") throw new Error("Tool approval preference must be a boolean");
     const current = this.runtimeConfigSnapshot();
     if (!current.configured) throw new Error("Initialize the runtime before changing tool approvals");
