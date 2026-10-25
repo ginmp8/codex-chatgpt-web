@@ -99,8 +99,11 @@ test("a blocked sign-in replaces an opaque navigation abort with a non-retryable
 
 test("startup waits beyond five seconds and distinguishes its deadline from caller cancellation", async () => {
   let calls = 0;
+  let thirdRequestStarted!: () => void;
+  const thirdRequest = new Promise<void>(resolve => { thirdRequestStarted = resolve; });
   const server = Bun.serve({ hostname: "127.0.0.1", port: 0, async fetch() {
     calls++;
+    if (calls === 3) thirdRequestStarted();
     await Bun.sleep(calls === 1 ? 5_100 : 80);
     return Response.json({ surfaceId: "a".repeat(32), reused: false, connectorBound: false });
   } });
@@ -111,7 +114,8 @@ test("startup waits beyond five seconds and distinguishes its deadline from call
     await expect(notifyLauncherTurn(descriptor, activity, 10)).rejects.toThrow("start timed out after 10ms");
     const controller = new AbortController();
     const pending = notifyLauncherTurn(descriptor, activity, undefined, controller.signal);
-    setTimeout(() => controller.abort(), 10);
+    await thirdRequest;
+    controller.abort();
     await expect(pending).rejects.toMatchObject({ name: "AbortError" });
     expect(calls).toBe(3);
   } finally { server.stop(true); }
@@ -144,8 +148,8 @@ function descriptorFile(
       script: import.meta.path,
     },
     partition: profile === "development"
-      ? "persist:codex-web-gpt-dev-chatgpt"
-      : "persist:codex-web-gpt-chatgpt",
+      ? "persist:codex-web-gpt-private-dev-chatgpt"
+      : "persist:codex-web-gpt-private-chatgpt",
     idleUrl: LAUNCHER_BROWSER_IDLE_URL,
     surfaceId: "launcher_surface_id_0123456789AB",
     surfaceTargets: { ["launcher_surface_id_0123456789AB"]: "native-owned-target" },
@@ -468,7 +472,7 @@ test("launcher profile checks reject cross-profile browser ownership", async () 
   const path = descriptorFile("http://127.0.0.1:39111", "development");
   expect(readLauncherBrowserHostDescriptor(path)).toMatchObject({
     profile: "development",
-    partition: "persist:codex-web-gpt-dev-chatgpt",
+    partition: "persist:codex-web-gpt-private-dev-chatgpt",
   });
   await expect(inspectLauncherBrowserHost(path, { expectedProfile: "production", timeoutMs: 5 }))
     .rejects.toThrow("belongs to development");
