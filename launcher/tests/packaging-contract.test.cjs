@@ -117,7 +117,7 @@ test("Linux AppImage fallback uses one owned extraction and removes it on exit",
   fs.mkdirSync(active);
   fs.writeFileSync(path.join(active, "owner.pid"), `${process.pid} ${ownerStart}\n`);
   try {
-    const result = spawnSync(runner, [appImage, "hello"], {
+    const result = spawnSync("/bin/sh", [runner, appImage, "hello"], {
       encoding: "utf8",
       env: {
         ...process.env,
