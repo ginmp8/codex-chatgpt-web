@@ -1099,8 +1099,11 @@ test("launcher delegates an existing terminal-managed installation to the migrat
     return { code: 0, stdout: "", stderr: "" };
   };
 
-  await host.runSetup("core-setup", ["setup", "--full"], {});
-  assert.equal(prepared, 1);
+  await assert.rejects(
+    host.runSetup("core-setup", ["setup", "--full"], {}),
+    /Privacy build refuses to migrate or stop a runtime managed by another launcher/,
+  );
+  assert.equal(prepared, 0);
   assert.equal(launcherStops, 0);
 });
 
@@ -1132,16 +1135,12 @@ test("failed terminal migration verifies the unchanged previous runtime instead 
 
   await assert.rejects(
     host.runSetup("core-setup", ["setup", "--browser-only"], {}),
-    /synthetic migration failure$/,
+    /Privacy build refuses to migrate or stop a runtime managed by another launcher/,
   );
-  assert.deepEqual(calls, [
-    "setup --browser-only --preflight-only",
-    "setup --browser-only",
-    "doctor --json",
-  ]);
+  assert.deepEqual(calls, []);
 });
 
-test("failed fresh-conversation setting restores every mutable setup file before restarting the previous runtime", async () => {
+test("failed fresh-conversation setting restores every mutable setup file before restarting the previous runtime", async (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "codex-web-gpt-setup-checkpoint-"));
   const coreHome = path.join(root, "core");
   const codexHome = path.join(root, "codex");
@@ -1177,7 +1176,16 @@ test("failed fresh-conversation setting restores every mutable setup file before
   fs.writeFileSync(profilePath, "old profile\n", { mode: 0o600 });
   fs.mkdirSync(sharedDirectory, { mode: 0o750 });
   fs.writeFileSync(sharedConfigPath, "old codex config\n", { mode: 0o640 });
-  fs.symlinkSync(sharedConfigPath, codexConfigPath);
+  try {
+    fs.symlinkSync(sharedConfigPath, codexConfigPath);
+  } catch (error) {
+    if (process.platform === "win32" && error.code === "EPERM") {
+      t.skip("Windows runner does not grant symlink creation to the test process");
+      fs.rmSync(root, { recursive: true, force: true });
+      return;
+    }
+    throw error;
+  }
   const linkTarget = fs.readlinkSync(codexConfigPath);
   const linkInode = fs.lstatSync(codexConfigPath).ino;
   const directoryMode = fs.statSync(sharedDirectory).mode & 0o777;
@@ -1305,19 +1313,13 @@ test("failed terminal migration restores removed launchd ownership before verify
   try {
     await assert.rejects(
       host.runSetup("core-setup", ["setup", "--full"], {}),
-      /synthetic launcher startup failure$/,
+      /Privacy build refuses to migrate or stop a runtime managed by another launcher/,
     );
-    assert.equal(startAttempts, 1);
+    assert.equal(startAttempts, 0);
     assert.deepEqual(readConfig(), oldConfig);
     assert.equal(fs.readFileSync(daemonPlist, "utf8"), "old daemon plist\n");
     assert.equal(fs.readFileSync(tunnelPlist, "utf8"), "old tunnel plist\n");
-    assert.deepEqual(calls, [
-      "setup --full --preflight-only",
-      "setup --full",
-      "service install",
-      "tunnel start",
-      "doctor --json",
-    ]);
+    assert.deepEqual(calls, []);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
