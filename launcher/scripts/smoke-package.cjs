@@ -151,7 +151,7 @@ try {
         run(launchServices, ["-u", macAppBundle]);
         run(launchServices, ["-gc"]);
       } catch (error) {
-        if (!/failed to scan .* from spotlight/i.test(error.message)) throw error;
+        if (!/failed to scan [\s\S]*: -10814[\s\S]*from spotlight/i.test(error.message)) throw error;
       }
     }
   } finally {
