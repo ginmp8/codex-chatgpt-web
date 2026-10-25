@@ -147,10 +147,11 @@ try {
     if (macAppBundle) {
       const launchServices =
         "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
-      run(
-        launchServices,
-        ["-u", macAppBundle],
-      );
+      try {
+        run(launchServices, ["-u", macAppBundle]);
+      } catch (error) {
+        if (!/failed to scan .* from spotlight/i.test(error.message)) throw error;
+      }
       run(launchServices, ["-gc"]);
     }
   } finally {
