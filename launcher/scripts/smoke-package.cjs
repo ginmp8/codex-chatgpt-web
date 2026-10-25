@@ -149,10 +149,10 @@ try {
         "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister";
       try {
         run(launchServices, ["-u", macAppBundle]);
+        run(launchServices, ["-gc"]);
       } catch (error) {
         if (!/failed to scan .* from spotlight/i.test(error.message)) throw error;
       }
-      run(launchServices, ["-gc"]);
     }
   } finally {
     fs.rmSync(scratch, { recursive: true, force: true });
