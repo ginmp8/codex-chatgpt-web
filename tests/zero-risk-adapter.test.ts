@@ -145,7 +145,7 @@ for (const scenario of [
   const control: ChatGptZeroRiskManualControl = {
     async start(_path, activity) {
       expect(activity.prompt).toContain('The selected local Codex plugin for this turn is "Codex Manual Work".');
-      host.beginManualTurn(activity.traceId, activity.helperPid, activity.prompt,
+      await host.beginManualTurn(activity.traceId, activity.helperPid, activity.prompt,
         activity.conversationKey, activity.resumePrompt, activity.compaction);
       starts.push(activity.traceId);
       bindings.set(activity.traceId, binding(activity.prompt).request_id);
@@ -226,7 +226,8 @@ for (const scenario of [
     await adapter.runTurn!(continuation, { headers: new Headers() }, event => replay.push(event));
     expect(starts).toHaveLength(2); // exact reconnect replays, it must not submit again
     expect(replay.at(-1)).toMatchObject({ type: "done", endTurn: true });
-    expect(() => host.beginManualTurn(starts[0], process.pid, "old prompt")).toThrow("already completed");
+    await expect(host.beginManualTurn(starts[0], process.pid, "old prompt"))
+      .rejects.toThrow("already completed");
   } finally {
     chatGptTurnSessions.clear();
     for (const tab of host.turnTabs.values()) clearTimeout(tab.manualDeadlineTimer);

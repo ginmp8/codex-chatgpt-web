@@ -295,7 +295,9 @@ function loadCommittedBrowserSurface(
     };
     const onDestroyed = () => finish(new Error("Browser closed during idle document bootstrap"));
     const timeout = setTimeout(() => {
-      finish(new Error(`Browser idle document did not commit within ${timeoutMs}ms`));
+      const error = new Error(`Browser idle document did not commit within ${timeoutMs}ms`);
+      error.code = "browser_surface_initialization_timeout";
+      finish(error);
       if (!contents.isDestroyed()) contents.stop();
     }, timeoutMs);
     timeout.unref?.();
@@ -313,6 +315,8 @@ function loadCommittedBrowserSurface(
     }
   });
 }
+
+let clipboardWriteTail = Promise.resolve();
 
 class BrowserHost {
   constructor({
@@ -2177,14 +2181,22 @@ class BrowserHost {
     tab.manualDeadlineTimer.unref?.();
   }
 
-  writeManualPrompt(prompt) {
+  async writeManualPrompt(prompt, tab) {
     if (!this.clipboard || typeof this.clipboard.writeText !== "function") {
       throw new Error("Electron clipboard is unavailable");
     }
-    this.clipboard.writeText(prompt);
+    while (tab?.manualClipboardWrite) await tab.manualClipboardWrite;
+    const clipboardWrite = clipboardWriteTail.then(() => this.clipboard.writeText(prompt));
+    clipboardWriteTail = clipboardWrite.catch(() => {});
+    if (tab) tab.manualClipboardWrite = clipboardWrite;
+    try {
+      await clipboardWrite;
+    } finally {
+      if (tab?.manualClipboardWrite === clipboardWrite) tab.manualClipboardWrite = null;
+    }
   }
 
-  beginManualTurn(traceId, helperPid, prompt, conversationKey, resumePrompt, compaction = false) {
+  async beginManualTurn(traceId, helperPid, prompt, conversationKey, resumePrompt, compaction = false) {
     if (this.manualOperation) {
       throw new Error(`ChatGPT browser is busy with ${this.manualOperation}`);
     }
@@ -2241,6 +2253,7 @@ class BrowserHost {
         || sameTrace.promptDigest !== manualPromptDigest(retryPrompt)) {
         throw new Error(`Zero Risk turn ${traceId} was retried with a different prompt`);
       }
+      if (sameTrace.manualClipboardWrite) await sameTrace.manualClipboardWrite;
       sameTrace.helperPid = helperPid;
       this.selectedTabId = sameTrace.id;
       this.showWindow();
@@ -2268,7 +2281,7 @@ class BrowserHost {
       if (typeof resumePrompt !== "string" || !resumePrompt) {
         throw new Error("A retained Zero Risk conversation requires an incremental resume prompt");
       }
-      this.writeManualPrompt(resumePrompt);
+      await this.writeManualPrompt(resumePrompt, tab);
       tab.traceId = traceId;
       tab.helperPid = helperPid;
       tab.status = "running";
@@ -2291,7 +2304,7 @@ class BrowserHost {
         manualSubmitTimeoutMs,
       );
       try {
-        this.writeManualPrompt(prompt);
+        await this.writeManualPrompt(prompt, tab);
       } catch (error) {
         this.signalManualTerminal(tab, "failed");
         this.removeTurnTab(tab, true);
@@ -2370,12 +2383,13 @@ class BrowserHost {
     });
   }
 
-  copyManualPrompt(tabId) {
+  async copyManualPrompt(tabId) {
     const tab = this.turnTabs.get(tabId);
     if (!tab || tab.interactionMode !== "manual" || typeof tab.prompt !== "string") {
       throw new Error("Manual prompt is no longer available");
     }
-    this.writeManualPrompt(tab.prompt);
+    while (tab.manualClipboardWrite) await tab.manualClipboardWrite;
+    await this.writeManualPrompt(tab.prompt, tab);
     if (tab.manualState === "awaiting-user") {
       tab.manualDeadlineAt = Date.now() + tab.manualSubmitTimeoutMs;
       this.armManualTurnDeadline(tab);

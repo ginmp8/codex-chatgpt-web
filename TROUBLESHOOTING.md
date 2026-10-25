@@ -222,7 +222,7 @@ Video walkthroughs:
 - [Create an OpenAI tunnel and API key](launcher/src/assets/mcp-create-tunnel.mp4)
 - [Connect the local harness and attach the ChatGPT connector](launcher/src/assets/mcp-connect-connector.mp4)
 
-Browser-only mode needs no connector. Full harness mode requires all of the following:
+Browser-only mode needs no connector. Automatic (Full harness) mode requires all of the following:
 
 - a newly created connector with the exact name shown in the launcher (**Codex Native2** by default);
 - **Developer Mode** enabled in ChatGPT;
@@ -230,6 +230,10 @@ Browser-only mode needs no connector. Full harness mode requires all of the foll
 - the connector and Tunnel on the same OpenAI account as the ChatGPT workspace;
 - **Allow all actions** under the connector's permissions; and
 - **Connect harness** completed before **Verify runtime**.
+
+Zero Risk uses **Codex Zero Risk** by default. In this mode, **Verify runtime** checks local health
+only; it does not verify that the connector was created or attached. Create and attach the connector
+externally in the ChatGPT account/workspace, then select it manually in ChatGPT for each turn.
 
 If a turn reports **ChatGPT is waiting for plugin permission**, open the plugin's settings
 in ChatGPT and choose **Permissions → Allow all actions**, then retry the turn. A visible
