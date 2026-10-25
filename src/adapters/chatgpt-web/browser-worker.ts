@@ -3368,6 +3368,11 @@ export class ChatGptBrowserWorker {
     if (titles.length === 0) {
       return `ChatGPT connector menu did not open after ${triggerAttempts} complete mention trigger attempt(s)`;
     }
+    if (titles.includes(this.config.appName)) {
+      return `ChatGPT connector menu exposed the row named ${JSON.stringify(this.config.appName)},`
+        + ` but it could not be selected after ${triggerAttempts} complete mention trigger attempt(s);`
+        + ` refresh ChatGPT and check its connector menu before retrying`;
+    }
     if (this.config.appName === CHATGPT_CONNECTOR_NAME && titles.includes(DEV_CHATGPT_CONNECTOR_NAME)) {
       return `ChatGPT exposes the isolated DEV connector ${JSON.stringify(DEV_CHATGPT_CONNECTOR_NAME)},`
         + ` but production requires a separate connector named ${JSON.stringify(CHATGPT_CONNECTOR_NAME)};`

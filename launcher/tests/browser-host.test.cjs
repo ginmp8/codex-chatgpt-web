@@ -3566,7 +3566,7 @@ function manualTurnFixture() {
     manualCompletionSignals: new Map(),
     manualOperation: null,
     selectedTabId: "home",
-    clipboard: { writeText: value => clipboardWrites.push(value) },
+    clipboard: { writeText: async value => { clipboardWrites.push(value); } },
     logger: { info() {}, warn() {}, error() {} },
     publishState() {},
     snapshot() {
@@ -3610,10 +3610,10 @@ function manualTurnFixture() {
   return { fixture, clipboardWrites };
 }
 
-test("manual start is idempotent and never exposes its private prompt in snapshots", () => {
+test("manual start is idempotent and never exposes its private prompt in snapshots", async () => {
   const { fixture, clipboardWrites } = manualTurnFixture();
-  const first = fixture.beginManualTurn("manual_trace_1", process.pid, "private prompt", "a".repeat(64));
-  const second = fixture.beginManualTurn("manual_trace_1", process.pid, "private prompt", "a".repeat(64));
+  const first = await fixture.beginManualTurn("manual_trace_1", process.pid, "private prompt", "a".repeat(64));
+  const second = await fixture.beginManualTurn("manual_trace_1", process.pid, "private prompt", "a".repeat(64));
   assert.equal(first.tabId, second.tabId);
   assert.equal(first.reused, false);
   assert.equal(second.reused, true);
@@ -3625,8 +3625,8 @@ test("manual start is idempotent and never exposes its private prompt in snapsho
 test("manual confirmation deadlines end at Sent so slow model startup can still complete", async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout", "Date"], now: 1_000_000 });
   const { fixture } = manualTurnFixture();
-  const ordinary = fixture.beginManualTurn("manual_ordinary", process.pid, "ordinary prompt");
-  const compaction = fixture.beginManualTurn(
+  const ordinary = await fixture.beginManualTurn("manual_ordinary", process.pid, "ordinary prompt");
+  const compaction = await fixture.beginManualTurn(
     "manual_compaction",
     process.pid,
     "compaction prompt",
@@ -3644,7 +3644,7 @@ test("manual confirmation deadlines end at Sent so slow model startup can still 
   assert.equal(ordinaryTab.manualState, "timed-out");
   assert.equal(compactionTab.manualState, "awaiting-user");
 
-  const slow = fixture.beginManualTurn("manual_slow_model", process.pid, "slow model prompt");
+  const slow = await fixture.beginManualTurn("manual_slow_model", process.pid, "slow model prompt");
   fixture.confirmManualSent(slow.tabId);
   fixture.confirmManualSent(compaction.tabId);
   t.mock.timers.tick(180_000);
@@ -3660,11 +3660,11 @@ test("manual confirmation deadlines end at Sent so slow model startup can still 
   }
 });
 
-test("manual completion is idempotent and cannot be downgraded after a lost acknowledgement", () => {
+test("manual completion is idempotent and cannot be downgraded after a lost acknowledgement", async () => {
   const { fixture } = manualTurnFixture();
   const logs = [];
   fixture.logger.info = (event, detail) => logs.push([event, detail]);
-  const retained = fixture.beginManualTurn(
+  const retained = await fixture.beginManualTurn(
     "manual_completed_retained",
     process.pid,
     "private prompt",
@@ -3688,7 +3688,7 @@ test("manual completion is idempotent and cannot be downgraded after a lost ackn
   assert.equal(fixture.turnTabs.get(retained.tabId).status, "ready");
   assert.equal(fixture.turnTabs.get(retained.tabId).manualState, "completed");
 
-  const released = fixture.beginManualTurn(
+  const released = await fixture.beginManualTurn(
     "manual_completed_released",
     process.pid,
     "another private prompt",
@@ -3735,9 +3735,9 @@ test("terminal Zero Risk tabs are reclaimed before retained conversations", () =
   assert.equal(fixture.turnTabs.has("manual-retained"), true);
 });
 
-test("a retained manual chat copies only its incremental resume prompt", () => {
+test("a retained manual chat copies only its incremental resume prompt", async () => {
   const { fixture, clipboardWrites } = manualTurnFixture();
-  const first = fixture.beginManualTurn(
+  const first = await fixture.beginManualTurn(
     "manual_trace_initial",
     process.pid,
     "full initial context",
@@ -3747,7 +3747,7 @@ test("a retained manual chat copies only its incremental resume prompt", () => {
   fixture.markManualTurnStarted("manual_trace_initial", process.pid);
   fixture.endManualTurn("manual_trace_initial", process.pid, "completed", true);
 
-  const second = fixture.beginManualTurn(
+  const second = await fixture.beginManualTurn(
     "manual_trace_next",
     process.pid,
     "full history that must not be copied again",
@@ -3761,11 +3761,11 @@ test("a retained manual chat copies only its incremental resume prompt", () => {
   clearTimeout(fixture.turnTabs.get(second.tabId).manualDeadlineTimer);
 });
 
-test("manual navigation preserves initial setup but retires a completed page's continuation", () => {
+test("manual navigation preserves initial setup but retires a completed page's continuation", async () => {
   for (const inPlace of [false, true]) {
     const { fixture, clipboardWrites } = manualTurnFixture();
     const key = "a".repeat(64);
-    const first = fixture.beginManualTurn("manual_initial", process.pid, "original context", key);
+    const first = await fixture.beginManualTurn("manual_initial", process.pid, "original context", key);
     const tab = fixture.turnTabs.get(first.tabId);
     const contents = new EventEmitter();
     contents.setWindowOpenHandler = () => {};
@@ -3782,7 +3782,7 @@ test("manual navigation preserves initial setup but retires a completed page's c
     navigate("https://example.com/frame", false);
     assert.equal(tab.conversationKey, key);
     navigate("https://chatgpt.com/c/another-conversation");
-    const next = fixture.beginManualTurn("manual_next", process.pid, "full history plus request", key, "delta only");
+    const next = await fixture.beginManualTurn("manual_next", process.pid, "full history plus request", key, "delta only");
     assert.equal(next.reused, false);
     assert.notEqual(next.tabId, first.tabId);
     assert.deepEqual(clipboardWrites, ["original context", "full history plus request"]);
@@ -3794,10 +3794,10 @@ test("navigation cannot silently continue a resumed manual turn with only its de
   for (const state of ["awaiting-user", "sent", "running"]) {
     const { fixture } = manualTurnFixture();
     const key = "a".repeat(64);
-    const first = fixture.beginManualTurn("manual_initial", process.pid, "original context", key);
+    const first = await fixture.beginManualTurn("manual_initial", process.pid, "original context", key);
     fixture.confirmManualSent(first.tabId);
     fixture.endManualTurn("manual_initial", process.pid, "completed", true);
-    const next = fixture.beginManualTurn("manual_next", process.pid, "full history plus request", key, "delta only");
+    const next = await fixture.beginManualTurn("manual_next", process.pid, "full history plus request", key, "delta only");
     const tab = fixture.turnTabs.get(next.tabId);
     const contents = new EventEmitter();
     contents.setWindowOpenHandler = () => {};
@@ -3822,15 +3822,15 @@ test("navigation cannot silently continue a resumed manual turn with only its de
     assert.throws(() => fixture.confirmManualSent(tab.id), /no longer/);
     assert.throws(() => fixture.endManualTurn("manual_next", process.pid, "completed", true), /cannot complete/);
     fixture.endManualTurn("manual_next", process.pid, "failed");
-    const fresh = fixture.beginManualTurn("manual_recovery", process.pid, "full history plus request", key, "delta only");
+    const fresh = await fixture.beginManualTurn("manual_recovery", process.pid, "full history plus request", key, "delta only");
     assert.equal(fresh.reused, false);
     fixture.cancelManualTurn("manual_recovery", process.pid);
   }
 });
 
-test("navigation after the first manual submission prevents retaining the changed page", () => {
+test("navigation after the first manual submission prevents retaining the changed page", async () => {
   const { fixture } = manualTurnFixture();
-  const first = fixture.beginManualTurn("manual_initial", process.pid, "original context", "a".repeat(64));
+  const first = await fixture.beginManualTurn("manual_initial", process.pid, "original context", "a".repeat(64));
   const tab = fixture.turnTabs.get(first.tabId);
   const contents = new EventEmitter();
   contents.setWindowOpenHandler = () => {};
@@ -3844,12 +3844,12 @@ test("navigation after the first manual submission prevents retaining the change
   assert.equal(fixture.manualCompletionSignals.has("manual_initial"), true);
 });
 
-test("manual start rejects a different prompt after Sent instead of replaying a trace", () => {
+test("manual start rejects a different prompt after Sent instead of replaying a trace", async () => {
   const { fixture, clipboardWrites } = manualTurnFixture();
-  const lease = fixture.beginManualTurn("manual_trace_mismatch", process.pid, "original prompt");
+  const lease = await fixture.beginManualTurn("manual_trace_mismatch", process.pid, "original prompt");
   fixture.confirmManualSent(lease.tabId);
-  assert.throws(
-    () => fixture.beginManualTurn("manual_trace_mismatch", process.pid, "replacement prompt"),
+  await assert.rejects(
+    fixture.beginManualTurn("manual_trace_mismatch", process.pid, "replacement prompt"),
     /retried with a different prompt/,
   );
   assert.deepEqual(clipboardWrites, ["original prompt"]);
@@ -3857,10 +3857,10 @@ test("manual start rejects a different prompt after Sent instead of replaying a 
 
 test("manual Copy and Sent confirmation remain isolated across concurrent tabs", async () => {
   const { fixture, clipboardWrites } = manualTurnFixture();
-  const one = fixture.beginManualTurn("manual_trace_1", process.pid, "first prompt", "a".repeat(64));
-  const two = fixture.beginManualTurn("manual_trace_2", process.pid, "second prompt", "b".repeat(64));
+  const one = await fixture.beginManualTurn("manual_trace_1", process.pid, "first prompt", "a".repeat(64));
+  const two = await fixture.beginManualTurn("manual_trace_2", process.pid, "second prompt", "b".repeat(64));
   const firstWait = fixture.waitManualSent("manual_trace_1", process.pid, 1_000);
-  fixture.copyManualPrompt(one.tabId);
+  await fixture.copyManualPrompt(one.tabId);
   fixture.confirmManualSent(one.tabId);
   assert.equal((await firstWait).status, "sent");
   assert.equal(fixture.turnTabs.get(one.tabId).manualState, "sent");
@@ -3869,29 +3869,29 @@ test("manual Copy and Sent confirmation remain isolated across concurrent tabs",
   for (const tab of fixture.turnTabs.values()) clearTimeout(tab.manualDeadlineTimer);
 });
 
-test("manual recovery preserves the prompt until running and keeps repeated starts valid", () => {
+test("manual recovery preserves the prompt until running and keeps repeated starts valid", async () => {
   const { fixture, clipboardWrites } = manualTurnFixture();
-  const lease = fixture.beginManualTurn("recover", process.pid, "same prompt");
+  const lease = await fixture.beginManualTurn("recover", process.pid, "same prompt");
   const tab = fixture.turnTabs.get(lease.tabId);
   tab.manualDeadlineAt = Date.now() + 1;
-  fixture.copyManualPrompt(tab.id);
+  await fixture.copyManualPrompt(tab.id);
   assert.ok(tab.manualDeadlineAt > Date.now() + 50_000);
   fixture.confirmManualSent(tab.id);
-  fixture.copyManualPrompt(tab.id);
+  await fixture.copyManualPrompt(tab.id);
   assert.equal(tab.manualState, "sent");
   assert.equal(tab.manualDeadlineAt, null);
   assert.deepEqual(clipboardWrites, ["same prompt", "same prompt", "same prompt"]);
   fixture.markManualTurnStarted("recover", process.pid);
   assert.equal(tab.prompt, null);
-  assert.throws(() => fixture.copyManualPrompt(tab.id), /no longer available/);
-  assert.equal(fixture.beginManualTurn("recover", process.pid, "same prompt").state, "running");
-  assert.throws(() => fixture.beginManualTurn("recover", process.pid, "different prompt"), /different prompt/);
+  await assert.rejects(fixture.copyManualPrompt(tab.id), /no longer available/);
+  assert.equal((await fixture.beginManualTurn("recover", process.pid, "same prompt")).state, "running");
+  await assert.rejects(fixture.beginManualTurn("recover", process.pid, "different prompt"), /different prompt/);
   fixture.cancelManualTurn("recover", process.pid);
 });
 
 test("manual Sent timeout and explicit cancellation are terminal", async () => {
   const { fixture } = manualTurnFixture();
-  const timed = fixture.beginManualTurn("manual_timeout", process.pid, "timeout prompt");
+  const timed = await fixture.beginManualTurn("manual_timeout", process.pid, "timeout prompt");
   const timedTab = fixture.turnTabs.get(timed.tabId);
   clearTimeout(timedTab.manualDeadlineTimer);
   timedTab.manualDeadlineAt = Date.now();
@@ -3899,7 +3899,7 @@ test("manual Sent timeout and explicit cancellation are terminal", async () => {
   await new Promise(resolve => setTimeout(resolve, 5));
   assert.deepEqual(await fixture.waitManualSent("manual_timeout", process.pid, 10), { status: "timeout" });
 
-  const cancelled = fixture.beginManualTurn("manual_cancel", process.pid, "cancel prompt");
+  const cancelled = await fixture.beginManualTurn("manual_cancel", process.pid, "cancel prompt");
   fixture.confirmManualSent(cancelled.tabId);
   const terminalWait = fixture.waitManualTerminal("manual_cancel", process.pid, 1_000);
   assert.deepEqual(fixture.cancelManualTurn("manual_cancel", process.pid), { cancelledByUser: true });
@@ -3912,7 +3912,7 @@ test("closing a sent manual tab remains an authoritative terminal cancellation",
   const { fixture } = manualTurnFixture();
   let cancelledTrace = null;
   fixture.cancelTurn = async traceId => { cancelledTrace = traceId; };
-  const lease = fixture.beginManualTurn("manual_close", process.pid, "close prompt");
+  const lease = await fixture.beginManualTurn("manual_close", process.pid, "close prompt");
   fixture.confirmManualSent(lease.tabId);
   const terminalWait = fixture.waitManualTerminal("manual_close", process.pid, 1_000);
   await fixture.closeTab(lease.tabId);
@@ -3921,13 +3921,13 @@ test("closing a sent manual tab remains an authoritative terminal cancellation",
   assert.deepEqual(await terminalWait, { status: "cancelled" });
 });
 
-test("manual turns never resume across a dead runtime owner", () => {
+test("manual turns never resume across a dead runtime owner", async () => {
   const { fixture } = manualTurnFixture();
   const deadPid = 2_000_000_000;
-  const lease = fixture.beginManualTurn("manual_owner_lost", deadPid, "old-token prompt");
+  const lease = await fixture.beginManualTurn("manual_owner_lost", deadPid, "old-token prompt");
   fixture.confirmManualSent(lease.tabId);
-  assert.throws(
-    () => fixture.beginManualTurn("manual_owner_lost", process.pid, "old-token prompt"),
+  await assert.rejects(
+    fixture.beginManualTurn("manual_owner_lost", process.pid, "old-token prompt"),
     /lost its original runtime owner and cannot be resumed/,
   );
   assert.equal(fixture.turnTabs.has(lease.tabId), false);

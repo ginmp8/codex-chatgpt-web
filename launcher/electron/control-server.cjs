@@ -209,7 +209,7 @@ class BrowserControlServer {
           if (body.compaction !== undefined && body.compaction !== true) {
             throw new Error("manual compaction flag is invalid");
           }
-          const lease = host.beginManualTurn(
+          const lease = await host.beginManualTurn(
             body.traceId,
             body.helperPid,
             body.prompt,
@@ -366,11 +366,12 @@ class BrowserControlServer {
       const manualInspectionDisabled = error?.code === "manual_browser_inspection_disabled";
       const manualOwnerLost = error?.code === "manual_turn_owner_lost";
       const manualTimedOut = error?.code === "manual_turn_timed_out";
+      const browserSurfaceInitializationTimedOut = error?.code === "browser_surface_initialization_timeout";
       writeJson(
         response,
         cancelled || retainedUnavailable || ownerLost || manualInspectionDisabled || manualOwnerLost
           ? 409
-          : manualTimedOut ? 408 : 400,
+          : manualTimedOut ? 408 : browserSurfaceInitializationTimedOut ? 503 : 400,
         {
         error: message,
         ...(cancelled ? { code: "turn_cancelled" } : {}),
@@ -379,6 +380,7 @@ class BrowserControlServer {
         ...(manualInspectionDisabled ? { code: "manual_browser_inspection_disabled" } : {}),
         ...(manualOwnerLost ? { code: "manual_turn_owner_lost" } : {}),
         ...(manualTimedOut ? { code: "manual_turn_timed_out" } : {}),
+        ...(browserSurfaceInitializationTimedOut ? { code: "browser_surface_initialization_timeout" } : {}),
         },
       );
     }
