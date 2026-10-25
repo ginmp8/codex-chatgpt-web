@@ -368,7 +368,7 @@ test("connector verification reports a legacy-only ChatGPT menu as a migration e
     connectorMentionRowTitles: async () => ["Codex Native", "Codex Native2", "Private chat title"],
   }, {}, 4);
   expect(mixedMessage).not.toContain("Legacy ChatGPT connector");
-  expect(mixedMessage).toContain('row named "Codex Native2" but it could not be selected');
+  expect(mixedMessage).toContain('row named "Codex Native2", but it could not be selected');
   expect(mixedMessage).not.toContain("Private chat title");
 });
 
