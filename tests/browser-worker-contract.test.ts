@@ -1796,7 +1796,7 @@ test("connector verification preserves the host-refreshed catalog evidence", asy
   }
 });
 
-for (const captureScreenshots of [false, true]) test(`connector failure persists safe checkpoints with opt-in screenshots (${captureScreenshots})`, async () => {
+for (const captureScreenshots of [false, true]) test(`connector failures do not persist browser diagnostics (${captureScreenshots})`, async () => {
   const diagnosticsRoot = mkdtempSync(join(tmpdir(), "cgw-connector-verification-"));
   const previousCapture = process.env.CODEX_CHATGPT_WEB_BROWSER_DIAGNOSTICS;
   if (captureScreenshots) process.env.CODEX_CHATGPT_WEB_BROWSER_DIAGNOSTICS = "1";
@@ -1837,28 +1837,8 @@ for (const captureScreenshots of [false, true]) test(`connector failure persists
       },
     }, "verify_contract_trace")).rejects.toBe(failure);
 
-    const [traceDirectory] = readdirSync(diagnosticsRoot);
-    expect(traceDirectory).toStartWith("verify_contract_trace-");
-    const files = readdirSync(join(diagnosticsRoot, traceDirectory!));
-    expect(JSON.parse(readFileSync(join(diagnosticsRoot, traceDirectory!, ".trace-state"), "utf8")).status).toBe("failed");
-    expect(screenshots).toBe(captureScreenshots ? 4 : 0);
-    expect(files.filter(name => name.endsWith(".png"))).toHaveLength(screenshots);
-    const checkpoints = files
-      .filter(name => name.endsWith(".json"))
-      .sort()
-      .map(name => JSON.parse(readFileSync(join(diagnosticsRoot, traceDirectory!, name), "utf8")));
-    expect(checkpoints.map(checkpoint => checkpoint.checkpoint)).toEqual([
-      "connector-verification-started",
-      "composer-ready",
-      "connector-mention-triggered",
-      "connector-verification-failed",
-    ]);
-    expect(checkpoints.at(-1)).toMatchObject({
-      traceId: "verify_contract_trace",
-      error: "connector proof failed",
-      state: { composer: { visibleCount: 1, textChars: [6] } },
-    });
-    expect(JSON.stringify(checkpoints)).not.toContain("private");
+    expect(readdirSync(diagnosticsRoot)).toEqual([]);
+    expect(screenshots).toBe(0);
   } finally {
     if (previousCapture === undefined) delete process.env.CODEX_CHATGPT_WEB_BROWSER_DIAGNOSTICS;
     else process.env.CODEX_CHATGPT_WEB_BROWSER_DIAGNOSTICS = previousCapture;
@@ -1898,20 +1878,7 @@ for (const useSavedChats of [false, true]) test(`connector verification prepares
 
     expect(result).toBe("Codex Native2 DEV");
     expect(calls).toEqual(["prepare", "select", "clear"]);
-    const [traceDirectory] = readdirSync(diagnosticsRoot);
-    expect(JSON.parse(readFileSync(join(diagnosticsRoot, traceDirectory!, ".trace-state"), "utf8")).status).toBe("completed");
-    const checkpoints = readdirSync(join(diagnosticsRoot, traceDirectory!))
-      .filter(name => name.endsWith(".json"))
-      .sort()
-      .map(name => JSON.parse(readFileSync(join(diagnosticsRoot, traceDirectory!, name), "utf8")))
-      .map(checkpoint => checkpoint.checkpoint);
-    expect(checkpoints).toEqual([
-      "connector-verification-started",
-      "composer-ready",
-      "connector-selected",
-      "connector-verification-cleared",
-      "connector-verification-succeeded",
-    ]);
+    expect(readdirSync(diagnosticsRoot)).toEqual([]);
   } finally {
     rmSync(diagnosticsRoot, { recursive: true, force: true });
   }

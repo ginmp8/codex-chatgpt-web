@@ -209,7 +209,7 @@ test("descriptor publishes native surface identities without inspecting renderer
     surfaceId: "h".repeat(32), view: { webContents: contents("home-target") },
     turnTabs: new Map([["automatic", automatic], ["manual", manual]]),
     getBrowserInteractionMode: () => "automatic", profile: "production", cdpPort: 40000,
-    partition: "persist:codex-web-gpt-chatgpt", control: {}, helper: {},
+    partition: "persist:codex-web-gpt-private-chatgpt", control: {}, helper: {},
     descriptorPath: require("node:path").join(dir, "descriptor.json"),
   };
   try {
@@ -234,7 +234,7 @@ test("mode transitions publish targets before setup inspection and restore them 
     view: { webContents: { isDestroyed: () => false, getOrCreateDevToolsTargetId: () => "home-target" } },
     turnTabs: new Map(), getBrowserInteractionMode: () => savedMode,
     interactionModeOverride: null, manualOperation: null,
-    profile: "production", cdpPort: 40000, partition: "persist:codex-web-gpt-chatgpt",
+    profile: "production", cdpPort: 40000, partition: "persist:codex-web-gpt-private-chatgpt",
     control: {}, helper: {}, descriptorPath: require("node:path").join(dir, "descriptor.json"),
     markOwnedSurface: async () => {},
     configureAnnouncementDismissal: async enabled => announcementModes.push(enabled),
