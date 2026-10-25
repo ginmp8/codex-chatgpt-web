@@ -40,13 +40,25 @@ def main():
     check('source package identity preserved', pkg.get('version') == '6.1.13')
     check('private packaged application ID', pkg.get('build', {}).get('appId') == 'dev.codexwebgpt.privacy')
     check('no update controller in launcher entrypoint', 'createUpdateController' not in main_src and 'updateController.' not in main_src and 'checkOnce()' not in main_src)
-    check('upstream updater and usage modules excluded from package', all('!electron/'+fn in installed_files for fn in ('update.cjs','update-worker.cjs','limits-store.cjs','limits-controller.cjs')))
+    check('untrusted updater excluded, local Limits modules packaged',
+        all('!electron/'+fn in installed_files for fn in ('update.cjs', 'update-worker.cjs'))
+        and all('!electron/'+fn not in installed_files for fn in ('limits-store.cjs', 'limits-controller.cjs')))
     check('pure version comparator replaces updater dependency', 'require("./version-compare.cjs")' in runtime and 'require("./update.cjs")' not in runtime)
     check('private browser partitions across launcher and BrowserHost', all(v in profile and v in browser for v in ('persist:codex-web-gpt-private-chatgpt','persist:codex-web-gpt-private-dev-chatgpt')))
     check('refuses upstream profile or cookies', 'cannot reuse upstream profile' in profile and 'cannot reuse upstream DEV profile' in profile)
     check('refuses migrating or uninstalling external runtime', 'refuses to migrate or stop a runtime' in runtime and 'refuses to uninstall an externally managed' in runtime)
     check('private core home', '.codex-chatgpt-web-private' in profile and '.codex-chatgpt-web-private' in contents('src/config.ts'))
-    check('local usage and account tracking disabled', 'require("./privacy-limits.cjs")' in main_src and 'enabled() { return false; }' in contents('launcher/electron/privacy-limits.cjs'))
+    limits_controller = contents('launcher/electron/limits-controller.cjs')
+    limits_store = contents('launcher/electron/limits-store.cjs')
+    check('local Limits requires explicit Automatic-mode plan setup',
+        'require("./limits-controller.cjs")' in main_src
+        and 'require("./limits-store.cjs")' in main_src
+        and 'limitsController.setup(() => browserHost.inspectLimitsPlan())' in main_src
+        and 'this.#requireAutomatic();' in limits_controller
+        and 'store.configure(config)' in limits_controller
+        and 'writePrivateFileAtomic(this.#filePath, content)' in limits_store
+        and not any(method in limits_controller + limits_store for method in
+                    ('fetch(', 'http.request(', 'https.request(', 'sendBeacon(', 'XMLHttpRequest')))
     check('logs persist no dynamic details', logs.count('detail: {},') >= 3 and 'event.redacted' in logs)
     diag = worker.split('class ChatGptBrowserDiagnostics {', 1)
     diag = diag[1].split('\nexport function resolveBrowserConfig', 1)[0] if len(diag) == 2 else ''

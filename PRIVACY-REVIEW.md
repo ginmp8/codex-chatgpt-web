@@ -28,12 +28,12 @@
 4. **Coexistence:** The private copy refuses to migrate, interrupt, or uninstall a runtime marked as externally managed; its owner must shut down and remove that runtime before connecting the new one.
 5. **Logging:** Persisted records contain only date, level, static event name, and `detail: {}`; export/re-read does not include details. Raw process stack traces are not written by the diagnostic guard. **Other components or the OS may still emit their own logs.**
 6. **Browser diagnostics:** `ChatGptBrowserDiagnostics` was converted to a no-op; this class does not write checkpoints or screenshots. This reduces debugging capability.
-7. **Usage tracking:** Replaced the controller with a disabled implementation. `trackUsage:false` is sent by the launcher controller; the session identity collection function should not be called by this flow.
+7. **Usage tracking:** Restored the reference Limits controller and 7-day store. The user must explicitly press **Check plan** in Automatic mode before counts are recorded; Zero Risk refuses setup and recording. Account keys are hashed and events are stored only under the isolated private launcher profile. These files are local metadata and still require OS account protection; no outbound collector was found in these modules.
 8. **External destinations:** Removed the maintainer's GitHub/X links from onboarding and sidebar, disabled social handlers; the launcher opens only exact pre-approved ChatGPT/platform/Help Center URLs. Arbitrary page popups cannot open links in the system browser; SSO providers still need validation.
 9. **Approvals:** The one-time `--auto-approve-tool-calls` mode is available only by explicit opt-in in Automatic mode (GUI or CLI) and remains disabled by default. The launcher refuses it in Zero Risk; setup clears it in Zero Risk; the model configuration and browser worker independently keep it disabled there. Browser automation accepts only the selected connector's one-time **Allow** / **Allow once** action, never **Always allow**. **Opt-in reduces manual oversight and can authorize unintended tool requests, including those influenced by untrusted conversation content. Codex permissions and ChatGPT workspace policy still apply; neither eliminates that risk.**
 10. **Automatic startup:** `autoStart` is disabled by default, without preventing an explicit user choice.
 
-**Intentionally retained:** Use of the authenticated ChatGPT UI, `(Web)` model catalog, streaming, Effort selection, Codex CLI/app-server, source builds, opt-in MCP integrations, and other upstream capabilities not explicitly removed.
+**Intentionally retained:** Use of the authenticated ChatGPT UI, `(Web)` model catalog, streaming, Effort selection, Codex CLI/app-server, source builds, opt-in MCP integrations, and user-initiated local Limits tracking. No telemetry is sent to the upstream maintainer by the restored Limits controller or store.
 
 ## Residual risks and nonconformities
 

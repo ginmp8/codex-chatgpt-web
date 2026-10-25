@@ -21,8 +21,8 @@ const {
 } = require("electron");
 const { BrowserHost, navigationErrorForLog } = require("./browser-host.cjs");
 const { BrowserControlServer } = require("./control-server.cjs");
-const { LimitsController } = require("./privacy-limits.cjs");
-const LIMITS_SOURCE_URL = "https://help.openai.com/en/articles/20001354-gpt-56-and-gpt-6-pro-in-chatgpt";
+const { LimitsController } = require("./limits-controller.cjs");
+const { SOURCE_URL: LIMITS_SOURCE_URL } = require("./limits-store.cjs");
 const { releaseRetainedConversation } = require("./retained-turn-release.cjs");
 const { getAutostart, setAutostart } = require("./autostart.cjs");
 const {
